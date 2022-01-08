@@ -1,0 +1,7 @@
+ourdir=$(dirname $0)
+
+wordlist="$ourdir/gsl-2000.txt"
+if [ $# -eq 1 ]; then
+  wordlist="$1"
+fi
+mlr --nidx --from $wordlist put -q -f $ourdir/ngfuncs.mlr -f $ourdir/ng5n.mlr

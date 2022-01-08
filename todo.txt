@@ -7,6 +7,7 @@ PUNCHDOWN LIST
   o codespell.yml
     - codespell  --check-filenames --skip *.csv,*.dkvp,*.txt,*.js,*.html,*.map,./tags,./test/cases --ignore-words-list denom,inTerm,inout,iput,nd,nin,numer,Wit,te,wee
   o readthedocs triggers
+* sync-print option; or (yuck) another xprint variant; or ...; emph dump/eprint
 
 * doc
   o new-in-miller-6: missing:

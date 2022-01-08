@@ -1,0 +1,137 @@
+# ================================================================
+begin {
+  if (is_absent(@n)) {
+    @n = 5;
+  }
+  if (is_absent(@ocount)) {
+    @ocount = 40;
+  }
+
+  call init();
+}
+
+for (_, word in $*) {
+  call ingest_word(word);
+}
+
+end {
+  call compute_cmfs();
+  # dump;
+}
+
+end {
+  for (int i = 0; i < @ocount; ) {
+    str word = emit_word();
+    if (word == "") { # splice fail
+    } else {
+      i += 1;
+      print word;
+    }
+  }
+}
+
+# ================================================================
+subr init() {
+  @len_histo    = {};
+  @start_histos = []; # Make this an array; auto-extend would make it a map
+}
+
+# ----------------------------------------------------------------
+subr ingest_word(str word) {
+  int wordlen = strlen(word);
+  if (wordlen < 1) {
+    return;
+  }
+
+  @len_histo[wordlen] += 1;
+
+  str from = "_";
+  for (i = 1; i < @n; i += 1) {
+    if (i > wordlen) {
+      return;
+    }
+    str to = word[i];
+    @start_histos[i][from][to] += 1;
+    from = word[1:i]
+  }
+
+  for (int i = 1; i <= wordlen-(@n-1); i += 1) {
+    from = word[i:i+@n-2];
+    to   = word[i+@n-1];
+    @middle_histo[from][to] += 1;
+  }
+
+  from = word[wordlen-(@n-2):wordlen-1];
+  to   = word[wordlen];
+
+  @end_histo[from][to] += 1;
+}
+
+# ----------------------------------------------------------------
+subr compute_cmfs() {
+  @len_cmf = compute_cmf_from_histo(@len_histo);
+
+  for (i = 1; i < @n; i += 1) {
+    for (from in @start_histos[i]) {
+      @start_cmfs[i][from] = compute_cmf_from_histo(@start_histos[i][from])
+    }
+  }
+
+  for (mnop in @middle_histo) {
+    @middle_cmf[mnop] = compute_cmf_from_histo(@middle_histo[mnop]);
+  }
+
+  for (wxy in @end_histo) {
+    @end_cmf[wxy] = compute_cmf_from_histo(@end_histo[wxy]);
+  }
+}
+
+# ----------------------------------------------------------------
+func emit_word(): str {
+  int olen = int(sample_from_cmf(@len_cmf));
+
+  str word = "";
+
+  str head = "_";
+  for (i = 1; i < @n; i += 1) {
+    if (i > olen) {
+      return word;
+    }
+    if (!is_map(@start_cmfs[i][head])) {
+      return "";
+    }
+    str letter = sample_from_cmf(@start_cmfs[i][head]);
+    word .= letter;
+    head = word;
+  }
+
+  str tail = word;
+  for (int i = @n; i < olen; i += 1) {
+    if (strlen(word) >= olen) {
+      return word;
+    }
+    if (is_absent(@middle_cmf[tail])) {
+      return "";
+    }
+    str letter = sample_from_cmf(@middle_cmf[tail]);
+    if (is_absent(letter)) {
+      return "";
+    }
+    tail = tail[2:@n-1] . letter;
+    word .= letter;
+  }
+
+  tail = tail[2:@n-1];
+
+  if (is_absent(@end_cmf[tail])) {
+    return "";
+  }
+
+  str last_letter = sample_from_cmf(@end_cmf[tail]);
+  if (is_absent(last_letter)) {
+    return "";
+  }
+  word .= last_letter;
+
+  return word;
+}
